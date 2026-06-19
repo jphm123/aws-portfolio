@@ -86,4 +86,56 @@ def start_honeypot(host='0.0.0.0', port=4444):
         print(f"[*] Warning: Advanced IP_RECVTTL flag not supported natively on this host subsystem: {e}")
 
     try:
-        server_socket.bind((host,
+        server_socket.bind((host, port))
+        server_socket.listen(5)
+        print(f"=================================================================")
+        print(f" 🍯 anLog Active Defense Online. Listening on port {port}...")
+        print(f"=================================================================")
+    except Exception as e:
+        print(f"[-] Failed to bind to port {port}: {e}")
+        sys.exit(1)
+
+    while True:
+        try:
+            client_socket, client_address = server_socket.accept()
+            attacker_ip = client_address[0]
+            print(f"[!] INTRUSION DETECTED: Connection attempt from {attacker_ip}")
+
+            ttl_val = 64 
+            
+            try:
+                _, ancdata, _, _ = client_socket.recvmsg(1024, socket.CMSG_SPACE(4))
+                for cmsg_level, cmsg_type, cmsg_data in ancdata:
+                    if cmsg_level == socket.IPPROTO_IP and cmsg_type == socket.IP_RECVTTL:
+                        ttl_val = int.from_bytes(cmsg_data, byteorder=sys.byteorder)
+            except Exception:
+                pass 
+
+            hostname = get_hostname(attacker_ip)
+            os_guess = analyze_ttl(ttl_val)
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + " UTC"
+            hardware_hash = generate_convincing_hash(attacker_ip, "HARDWARE")
+            threat_uuid = generate_uuid(attacker_ip)
+
+            formatted_banner = BANNER.format(
+                ip_address=attacker_ip,
+                hostname=hostname,
+                os_guess=os_guess,
+                ttl_val=ttl_val,
+                timestamp=timestamp,
+                hardware_hash=hardware_hash,
+                threat_uuid=threat_uuid
+            )
+
+            client_socket.sendall(formatted_banner.encode('utf-8'))
+            client_socket.close()
+            
+        except KeyboardInterrupt:
+            print("\n[-] Shutting down anLog Security Engine.")
+            server_socket.close()
+            break
+        except Exception as e:
+            print(f"[-] Error handling connection: {e}")
+
+if __name__ == "__main__":
+    start_honeypot()
