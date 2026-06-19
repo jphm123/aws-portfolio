@@ -6,7 +6,7 @@ import json
 import hashlib
 from remediation import block_ip
 
-HONEYPOT_PORT = 2222
+HONEYPOT_PORT = 4444
 
 def get_attacker_metadata(ip_address):
     """Pulls live geographic, ISP, and VPN/Proxy data based on the IP."""
